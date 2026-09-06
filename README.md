@@ -129,10 +129,17 @@ Everything below is verified working on the development machine:
 
 ## Install
 
-1. Download or clone this repository somewhere permanent (not your Downloads
-   folder — the "start with Windows" option stores this path).
-2. Install PawnIO if you want RAM RGB and CPU temperature.
-3. Double-click **`Start.cmd`**.
+1. Download the [latest release](https://github.com/CihanStudio/lian-li-windows/releases/latest)
+   and extract it somewhere permanent — **not** your Downloads folder, because
+   the "start with Windows" option stores this path. (`git clone` works too.)
+2. Unblock the extracted files. Windows marks everything that came out of a
+   downloaded zip, and clicking through forty files one at a time is not
+   reasonable. Open PowerShell in the folder you extracted to and run:
+   ```powershell
+   Get-ChildItem -Recurse | Unblock-File
+   ```
+3. Install PawnIO if you want RAM RGB and CPU temperature.
+4. Double-click **`Start.cmd`**.
 
 ### About the SmartScreen warning
 
@@ -140,8 +147,8 @@ Windows will warn you the first time. This is expected and it is not a statement
 about the code — it means the files are unsigned and downloaded from the
 internet. Code signing certificates cost money and this project has none.
 
-Click **More info → Run anyway**, or right-click each `.ps1` → Properties →
-**Unblock**.
+Click **More info → Run anyway**. The `Unblock-File` line in step 2 above
+clears the same mark on every file at once.
 
 If that trade is not acceptable to you, that is a completely reasonable position.
 Everything here is plain text: read `CoolApp.ps1` and the `lib/` folder before
