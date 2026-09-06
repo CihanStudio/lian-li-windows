@@ -745,7 +745,9 @@ $lblHiz.Text = "%40"
 $lblHiz.Font = New-Object System.Drawing.Font('Segoe UI', 20, [System.Drawing.FontStyle]::Bold)
 $lblHiz.ForeColor = $yaziRenk
 $lblHiz.Location = New-Object System.Drawing.Point(14, 22)
-$lblHiz.Size = New-Object System.Drawing.Size(110, 40)
+# 110 -> 102: eski genislik x=120'deki kaydiriciyla 4 piksel ust uste
+# biniyordu. "%100" 20pt kalin yaziyla ~80px, 102 rahat yetiyor.
+$lblHiz.Size = New-Object System.Drawing.Size(102, 40)
 $grpHiz.Controls.Add($lblHiz)
 
 $trkHiz = New-Object System.Windows.Forms.TrackBar
@@ -755,7 +757,13 @@ $trkHiz.TickFrequency = 10
 $trkHiz.LargeChange = 10
 $trkHiz.Value = 40
 $trkHiz.Location = New-Object System.Drawing.Point(120, 24)
-$trkHiz.Size = New-Object System.Drawing.Size(288, 45)
+# DIKKAT: TrackBar.AutoSize VARSAYILAN OLARAK ACIK ve yuksekligi kendi
+# dayatiyor - kapatmadan Size atamak SESSIZCE YOK SAYILIYOR (denendi,
+# 45'te kaldi). Once AutoSize kapatilir, sonra boyut verilir.
+# Yukseklik 45 -> 38: denetimin kutusu cizilen parcadan buyuk, 45'te
+# altindaki aciklama etiketinin uzerine 3 piksel biniyordu.
+$trkHiz.AutoSize = $false
+$trkHiz.Size = New-Object System.Drawing.Size(288, 38)
 $grpHiz.Controls.Add($trkHiz)
 
 $lblHizNot = New-Object System.Windows.Forms.Label
@@ -964,7 +972,11 @@ $trkParlaklik.TickFrequency = 10
 $trkParlaklik.LargeChange = 10
 $trkParlaklik.Value = 100
 $trkParlaklik.Location = New-Object System.Drawing.Point(92, $ekranAltY)
-$trkParlaklik.Size = New-Object System.Drawing.Size(148, 45)   # bitis 240, dugme 250'de
+# Genislik: bitis 240, "Ekranlari durdur" dugmesi 250'de.
+# Yukseklik 45 -> 38: 45'te "Ekranlara uygula" dugmesinin uzerine 5 piksel
+# biniyordu. AutoSize kapatilmadan yukseklik atanamaz (yukariya bak).
+$trkParlaklik.AutoSize = $false
+$trkParlaklik.Size = New-Object System.Drawing.Size(148, 38)
 $grpEkran.Controls.Add($trkParlaklik)
 
 $btnEkranDurdur = New-Object System.Windows.Forms.Button

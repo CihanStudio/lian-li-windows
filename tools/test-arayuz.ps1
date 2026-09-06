@@ -50,6 +50,36 @@ function Get-Tasan {
     }
 }
 
+function Get-Cakisan {
+    <#
+      Ayni kap icindeki denetimlerin dikdortgenleri kesisiyor mu?
+      Bu arayuzde HICBIR denetim ust uste binmemeli - binmisse biri
+      digerinin uzerine ciziliyor demektir.
+      Dile bagli DEGIL (konumlar sabit), bir kez bakmak yeter.
+    #>
+    param($Ana, [string]$Yol = 'form')
+    $liste = @($Ana.Controls)
+    for ($i = 0; $i -lt $liste.Count; $i++) {
+        for ($j = $i + 1; $j -lt $liste.Count; $j++) {
+            $a = $liste[$i]; $b = $liste[$j]
+            $ra = New-Object System.Drawing.Rectangle($a.Left, $a.Top, $a.Width, $a.Height)
+            $rb = New-Object System.Drawing.Rectangle($b.Left, $b.Top, $b.Width, $b.Height)
+            if ($ra.IntersectsWith($rb)) {
+                $kesisim = [System.Drawing.Rectangle]::Intersect($ra, $rb)
+                [PSCustomObject]@{
+                    Yer = $Yol
+                    A   = ("{0}('{1}') {2}" -f $a.GetType().Name, $a.Text, $ra)
+                    B   = ("{0}('{1}') {2}" -f $b.GetType().Name, $b.Text, $rb)
+                    Ust = ("{0}x{1} px" -f $kesisim.Width, $kesisim.Height)
+                }
+            }
+        }
+    }
+    foreach ($c in $liste) {
+        if ($c.Controls.Count -gt 0) { Get-Cakisan -Ana $c -Yol ("{0} > {1}" -f $Yol, $c.Text.Trim()) }
+    }
+}
+
 $global:TestTasanlar = @()
 $global:TestMetinler = @{}
 foreach ($testDil in @('en','tr')) {
@@ -58,6 +88,7 @@ foreach ($testDil in @('en','tr')) {
     $global:TestTasanlar += @(Get-Tasan -Ana $form -Dil $testDil)
     $global:TestMetinler[$testDil] = $form.Text
 }
+$global:TestCakisanlar = @(Get-Cakisan -Ana $form)
 $global:TestBoyut = $form.Size
 $form.Dispose()
 '@
@@ -78,15 +109,33 @@ try {
     Write-Host ("Baslik  : en='{0}'  tr='{1}'" -f $TestMetinler['en'], $TestMetinler['tr'])
     Write-Host ""
 
+    $cikis = 0
+
+    Write-Host "1) Kutusuna sigmayan metin"
     if ($TestTasanlar.Count -eq 0) {
-        Write-Host "GECTI: iki dilde de hicbir metin kutusuna sigmiyor degil." -ForegroundColor Green
-        $cikis = 0
+        Write-Host "   yok - iki dilde de temiz" -ForegroundColor Green
     }
     else {
-        Write-Host ("BASARISIZ - {0} metin kirpiliyor:" -f $TestTasanlar.Count) -ForegroundColor Red
+        Write-Host ("   {0} metin kirpiliyor:" -f $TestTasanlar.Count) -ForegroundColor Red
         foreach ($t in $TestTasanlar) {
-            Write-Host ("  [{0}] {1,-8} gerekli {2,4}px / yer {3,4}px  ->  {4}" -f `
+            Write-Host ("     [{0}] {1,-8} gerekli {2,4}px / yer {3,4}px  ->  {4}" -f `
                 $t.Dil, $t.Tip, $t.Gerek, $t.Var, $t.Metin) -ForegroundColor Red
+        }
+        $cikis = 1
+    }
+
+    Write-Host ""
+    Write-Host "2) Ust uste binen denetim"
+    if ($TestCakisanlar.Count -eq 0) {
+        Write-Host "   yok" -ForegroundColor Green
+    }
+    else {
+        Write-Host ("   {0} cakisma:" -f $TestCakisanlar.Count) -ForegroundColor Red
+        foreach ($c in $TestCakisanlar) {
+            Write-Host ("     {0}" -f $c.Yer) -ForegroundColor Red
+            Write-Host ("       {0}" -f $c.A) -ForegroundColor Red
+            Write-Host ("       {0}" -f $c.B) -ForegroundColor Red
+            Write-Host ("       ust uste binen alan: {0}" -f $c.Ust) -ForegroundColor Red
         }
         $cikis = 1
     }
