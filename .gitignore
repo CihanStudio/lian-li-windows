@@ -1,0 +1,25 @@
+# Bu dosyalar KULLANICIYA AIT - depoya girmemeli.
+
+# Ekran atamalari: icinde MUTLAK YOLLAR var (C:\Users\<isim>\...), yani
+# kullanici adini sizdirir. Ayrica baska makinede anlamsiz - uygulama
+# yoksa varsayilanla aciliyor.
+ekranlar.json
+
+# Daemon'un anlik durumu. Her saniye degisen gecici veri.
+lcd-durum.json
+
+# Dil secimi. Yeni kullanicida Windows'un dilinden gelmeli, benim
+# secimim ona dayatilmamali.
+dil.txt
+
+# Ekranlara basilan gorseller. BUNLAR PROJENIN PARCASI DEGIL: internetten
+# indirilmis, telif durumu bilinmeyen dosyalar olabilir ve boyutlari
+# depoyu sisirir. Kullanici kendi gorselini secer.
+gifs/
+*.gif
+
+# Windows / editor artiklari
+Thumbs.db
+desktop.ini
+*.bak
+*.tmp

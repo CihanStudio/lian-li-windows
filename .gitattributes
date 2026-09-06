@@ -1,0 +1,18 @@
+# Satir sonlari.
+#
+# Bu proje Windows'a ozel: PowerShell betikleri ve .cmd dosyasi Windows'ta
+# calisiyor. Depoda LF tutulur (git'in normali), calisma kopyasinda CRLF
+# olur. Bunu ACIKCA yazmak, farkli ayarlardaki katkicilarin butun dosyayi
+# "degismis" gostermesini engelliyor.
+* text=auto
+
+# .cmd dosyasini eski Windows kabuklari LF ile yanlis yorumlayabiliyor -
+# calisma kopyasinda her zaman CRLF olsun.
+*.cmd text eol=crlf
+
+# Ikili dosyalar - git bunlara DOKUNMAMALI.
+# PawnIO cekirdek modulleri: tek bayt bozulsa modul yuklenmez.
+*.bin binary
+*.png binary
+*.ico binary
+*.gif binary
