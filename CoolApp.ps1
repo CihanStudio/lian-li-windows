@@ -505,7 +505,11 @@ function Get-EkranIndeksleri {
                 try {
                     $dev = Open-TlLcd -Info $info
                     $k = Get-TlLcdIdentity -Device $dev
-                    $bulunan += $(if ($null -ne $k) { [int]$k.Indeks } else { 0 })
+                    # Kimlik okunamayinca 0 UYDURMA: birden fazla ekranda hepsi 0
+                    # olur, EkranKutulari sozlugunde birbirini ezer ve ilk kutu
+                    # sonsuza dek bos kalirdi. Vazgecip 3. adima (0..N-1) dus.
+                    if ($null -eq $k) { throw 'kimlik okunamadi' }
+                    $bulunan += [int]$k.Indeks
                 }
                 finally { if ($dev) { try { $dev.Dispose() } catch { } } }
             }
@@ -621,7 +625,10 @@ function Set-Isik {
             Invoke-WithSmbusLock -TimeoutMs 6000 -Action {
                 Set-SmbusPort -Handle $script:SmbH -Port $script:RamPort | Out-Null
                 foreach ($a in $script:RamAdresleri) {
-                    Set-CorsairDramColor -Handle $script:SmbH -Address $a -Color $Hex | Out-Null
+                    # Write-SmbusBlock istisna ATMAZ, HRESULT doner. Sonucu Out-Null ile
+                    # atarsak basarisiz yazma "uygulandi" diye raporlanirdi.
+                    $r = Set-CorsairDramColor -Handle $script:SmbH -Address $a -Color $Hex
+                    if (-not $r.Ok) { throw ("0x{0:X2}: hr1=0x{1:X8}" -f $a, $r.Hr1) }
                     Start-Sleep -Milliseconds 15
                 }
             }
@@ -644,10 +651,12 @@ function Set-IsikKapali {
 
     if ($script:Ga2Dev) {
         foreach ($sc in @('Inner','Outer')) {
-            try { Set-GA2PumpLight -Device $script:Ga2Dev -Scope $sc -Off | Out-Null } catch {}
+            # Bos catch degil: bu fonksiyon $hatalar donduruyor, yutulan hata
+            # "isiklar kapandi" yalanina donusuyordu.
+            try { Set-GA2PumpLight -Device $script:Ga2Dev -Scope $sc -Off | Out-Null } catch { $hatalar += $_.Exception.Message }
             Start-Sleep -Milliseconds 80
         }
-        try { Set-GA2FanLight -Device $script:Ga2Dev -Off | Out-Null } catch {}
+        try { Set-GA2FanLight -Device $script:Ga2Dev -Off | Out-Null } catch { $hatalar += $_.Exception.Message }
     }
 
     # Bellekte "kapali" diye bir komut yok; siyah renk yaziliyor
@@ -656,7 +665,9 @@ function Set-IsikKapali {
             Invoke-WithSmbusLock -TimeoutMs 6000 -Action {
                 Set-SmbusPort -Handle $script:SmbH -Port $script:RamPort | Out-Null
                 foreach ($a in $script:RamAdresleri) {
-                    Set-CorsairDramColor -Handle $script:SmbH -Address $a -Color '000000' | Out-Null
+                    # Acmadaki ile ayni gerekce: HRESULT atilirsa "kapandi" yalani soylenir.
+                    $r = Set-CorsairDramColor -Handle $script:SmbH -Address $a -Color '000000'
+                    if (-not $r.Ok) { throw ("0x{0:X2}: hr1=0x{1:X8}" -f $a, $r.Hr1) }
                     Start-Sleep -Milliseconds 15
                 }
             }
@@ -1447,7 +1458,12 @@ function Update-Durum {
             $no++
             $etiket = if ($script:TlDevs.Count -gt 1) { T 'et-fan-n' @($no) } else { T 'et-fan' }
             try {
-                $f = (Get-TLFans -Device $dev).Fans | Where-Object { $_.Detected } | Sort-Object Port, FanIndex
+                # Get-TLFans zaman asiminda $null doner. StrictMode kapali oldugu icin
+                # $null.Fans istisna ATMAZ, sessizce $null uretirdi: catch calismaz,
+                # 'okunamadi' yazilmaz ve fan satiri panelden sessizce kaybolurdu.
+                $okuma = Get-TLFans -Device $dev
+                if ($null -eq $okuma) { throw 'yanit yok' }
+                $f = $okuma.Fans | Where-Object { $_.Detected } | Sort-Object Port, FanIndex
                 if ($f) {
                     $satirlar += ($etiket + (($f | ForEach-Object { "{0,5:N0}" -f $_.RPM }) -join ' ') + " RPM")
                 }

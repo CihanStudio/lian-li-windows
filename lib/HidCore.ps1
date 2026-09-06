@@ -66,7 +66,13 @@ namespace LianLi
                     uint wait = HidCore.WaitForSingleObject(ev, (uint)timeoutMs);
                     if (wait != 0)
                     {
+                        // CancelIoEx ASENKRONDUR: sadece iptal talebini birakip hemen doner.
+                        // Cekirdek islem gercekten bitince pOv'a yazar. Beklemeden finally'de
+                        // FreeHGlobal edersek serbest bellege yazar -> heap bozulmasi.
+                        // bWait=true ile iptalin tamamlanmasini bekliyoruz.
                         HidCore.CancelIoEx(handle, pOv);
+                        uint iptalEdilen;
+                        HidCore.GetOverlappedResult(handle, pOv, out iptalEdilen, true);
                         throw new TimeoutException("Yazma zaman asimi (" + timeoutMs + " ms).");
                     }
                     if (!HidCore.GetOverlappedResult(handle, pOv, out written, false))
@@ -104,7 +110,11 @@ namespace LianLi
                     uint wait = HidCore.WaitForSingleObject(ev, (uint)timeoutMs);
                     if (wait != 0)
                     {
+                        // Yazma tarafiyla ayni gerekce: iptalin bitmesini beklemeden
+                        // pOv serbest birakilirsa surucu serbest bellege yazar.
                         HidCore.CancelIoEx(handle, pOv);
+                        uint iptalEdilen;
+                        HidCore.GetOverlappedResult(handle, pOv, out iptalEdilen, true);
                         return null;
                     }
                     if (!HidCore.GetOverlappedResult(handle, pOv, out read, false))
@@ -194,46 +204,57 @@ namespace LianLi
             IntPtr set = SetupDiGetClassDevs(ref hidGuid, IntPtr.Zero, IntPtr.Zero, 0x12);
             if (set == new IntPtr(-1)) return results;
 
-            for (int i = 0; ; i++)
+            // try/finally: dongu icinde bir istisna cikarsa aygit bilgi kumesi
+            // (set) surec omru boyunca sizardi.
+            try
             {
-                var did = new SP_DEVICE_INTERFACE_DATA();
-                did.cbSize = Marshal.SizeOf(typeof(SP_DEVICE_INTERFACE_DATA));
-                if (!SetupDiEnumDeviceInterfaces(set, IntPtr.Zero, ref hidGuid, i, ref did)) break;
-
-                var dd = new SP_DEVICE_INTERFACE_DETAIL_DATA();
-                dd.cbSize = (IntPtr.Size == 8) ? 8 : 4 + Marshal.SystemDefaultCharSize;
-                int req = 0;
-                if (!SetupDiGetDeviceInterfaceDetail(set, ref did, ref dd, Marshal.SizeOf(dd), ref req, IntPtr.Zero)) continue;
-
-                var info = new HidInfo();
-                info.Path = dd.DevicePath;
-
-                IntPtr h = CreateFile(dd.DevicePath, 0, FILE_SHARE_RW, IntPtr.Zero, OPEN_EXISTING, 0, IntPtr.Zero);
-                if (h != new IntPtr(-1))
+                for (int i = 0; ; i++)
                 {
-                    var attr = new HIDD_ATTRIBUTES(); attr.Size = Marshal.SizeOf(typeof(HIDD_ATTRIBUTES));
-                    if (HidD_GetAttributes(h, ref attr)) { info.Vid = attr.VendorID; info.Pid = attr.ProductID; }
-                    var sb = new StringBuilder(256);
-                    if (HidD_GetProductString(h, sb, 512)) info.Product = sb.ToString();
+                    var did = new SP_DEVICE_INTERFACE_DATA();
+                    did.cbSize = Marshal.SizeOf(typeof(SP_DEVICE_INTERFACE_DATA));
+                    if (!SetupDiEnumDeviceInterfaces(set, IntPtr.Zero, ref hidGuid, i, ref did)) break;
 
-                    IntPtr pp;
-                    if (HidD_GetPreparsedData(h, out pp))
+                    var dd = new SP_DEVICE_INTERFACE_DETAIL_DATA();
+                    dd.cbSize = (IntPtr.Size == 8) ? 8 : 4 + Marshal.SystemDefaultCharSize;
+                    int req = 0;
+                    if (!SetupDiGetDeviceInterfaceDetail(set, ref did, ref dd, Marshal.SizeOf(dd), ref req, IntPtr.Zero)) continue;
+
+                    var info = new HidInfo();
+                    info.Path = dd.DevicePath;
+
+                    IntPtr h = CreateFile(dd.DevicePath, 0, FILE_SHARE_RW, IntPtr.Zero, OPEN_EXISTING, 0, IntPtr.Zero);
+                    if (h != new IntPtr(-1))
                     {
-                        HIDP_CAPS caps;
-                        if (HidP_GetCaps(pp, out caps) == 0x110000)
+                        try
                         {
-                            info.UsagePage = caps.UsagePage; info.Usage = caps.Usage;
-                            info.InputLen = caps.InputReportByteLength;
-                            info.OutputLen = caps.OutputReportByteLength;
-                            info.FeatureLen = caps.FeatureReportByteLength;
+                            var attr = new HIDD_ATTRIBUTES(); attr.Size = Marshal.SizeOf(typeof(HIDD_ATTRIBUTES));
+                            if (HidD_GetAttributes(h, ref attr)) { info.Vid = attr.VendorID; info.Pid = attr.ProductID; }
+                            var sb = new StringBuilder(256);
+                            if (HidD_GetProductString(h, sb, 512)) info.Product = sb.ToString();
+
+                            IntPtr pp;
+                            if (HidD_GetPreparsedData(h, out pp))
+                            {
+                                try
+                                {
+                                    HIDP_CAPS caps;
+                                    if (HidP_GetCaps(pp, out caps) == 0x110000)
+                                    {
+                                        info.UsagePage = caps.UsagePage; info.Usage = caps.Usage;
+                                        info.InputLen = caps.InputReportByteLength;
+                                        info.OutputLen = caps.OutputReportByteLength;
+                                        info.FeatureLen = caps.FeatureReportByteLength;
+                                    }
+                                }
+                                finally { HidD_FreePreparsedData(pp); }
+                            }
+                            results.Add(info);
                         }
-                        HidD_FreePreparsedData(pp);
+                        finally { CloseHandle(h); }
                     }
-                    CloseHandle(h);
-                    results.Add(info);
                 }
             }
-            SetupDiDestroyDeviceInfoList(set);
+            finally { SetupDiDestroyDeviceInfoList(set); }
             return results;
         }
 
