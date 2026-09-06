@@ -1,5 +1,7 @@
 # Lian Li fan, AIO and LCD control for Windows — without vendor software
 
+![Three vendor applications crossed out, replaced by one app in one window](assets/banner.png)
+
 One small app that controls your Lian Li fans, AIO pump, RGB lighting and TL LCD
 screens on Windows. No L-Connect. No iCUE. No GIGABYTE Control Center. No
 FanControl. No background services from four different vendors fighting over the
