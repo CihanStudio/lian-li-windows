@@ -737,6 +737,16 @@ $form.BackColor = $zeminRenk
 $form.ForeColor = $yaziRenk
 $form.Font = $yaziTipi
 
+# Pencere/gorev cubugu simgesi. Simge YOKSA veya bozuksa uygulama yine de
+# acilmali - Windows varsayilan PowerShell simgesini kullanir.
+try {
+    $ikonYolu = Join-Path $script:AppKlasoru "assets\app.ico"
+    if (Test-Path -LiteralPath $ikonYolu) {
+        $form.Icon = New-Object System.Drawing.Icon($ikonYolu)
+    }
+}
+catch { }
+
 function New-Grup {
     param([string]$Baslik, [int]$Y, [int]$Yukseklik)
     $g = New-Object System.Windows.Forms.GroupBox
