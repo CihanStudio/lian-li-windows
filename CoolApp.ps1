@@ -892,14 +892,17 @@ foreach ($ixSayi in $script:EkranIndeksleri) {
     $lb.Text = $script:EkranAdlari[$ix]
     $script:EkranEtiketleri[$ix] = $lb
     $lb.ForeColor = $soluk
+    # Etiket genisligi 62 -> 78: "Bottom fan" 62'ye SIGMIYORDU, "Bottom"
+    # diye kirpiliyordu. Metin kutusu da ayni kadar saga kaydi; sagdaki
+    # dugmeler (298 ve 362) yerinde kaldi.
     $lb.Location = New-Object System.Drawing.Point(16, ($satirY + 5))
-    $lb.Size = New-Object System.Drawing.Size(62, 20)
+    $lb.Size = New-Object System.Drawing.Size(78, 20)
     $grpEkran.Controls.Add($lb)
 
     $tb = New-Object System.Windows.Forms.TextBox
     $tb.ReadOnly = $true
-    $tb.Location = New-Object System.Drawing.Point(80, $satirY)
-    $tb.Size = New-Object System.Drawing.Size(212, 22)
+    $tb.Location = New-Object System.Drawing.Point(98, $satirY)
+    $tb.Size = New-Object System.Drawing.Size(194, 22)
     $tb.BackColor = $panelRenk
     $tb.ForeColor = $yaziRenk
     $tb.BorderStyle = 'FixedSingle'
@@ -951,7 +954,7 @@ $lblParlaklik = New-Object System.Windows.Forms.Label
 $lblParlaklik.Text = T 'parlaklik'
 $lblParlaklik.ForeColor = $soluk
 $lblParlaklik.Location = New-Object System.Drawing.Point(16, ($ekranAltY + 8))
-$lblParlaklik.Size = New-Object System.Drawing.Size(64, 20)
+$lblParlaklik.Size = New-Object System.Drawing.Size(72, 20)   # "Brightness:" 64'e sigmiyordu
 $grpEkran.Controls.Add($lblParlaklik)
 
 $trkParlaklik = New-Object System.Windows.Forms.TrackBar
@@ -960,8 +963,8 @@ $trkParlaklik.Maximum = 100
 $trkParlaklik.TickFrequency = 10
 $trkParlaklik.LargeChange = 10
 $trkParlaklik.Value = 100
-$trkParlaklik.Location = New-Object System.Drawing.Point(80, $ekranAltY)
-$trkParlaklik.Size = New-Object System.Drawing.Size(160, 45)
+$trkParlaklik.Location = New-Object System.Drawing.Point(92, $ekranAltY)
+$trkParlaklik.Size = New-Object System.Drawing.Size(148, 45)   # bitis 240, dugme 250'de
 $grpEkran.Controls.Add($trkParlaklik)
 
 $btnEkranDurdur = New-Object System.Windows.Forms.Button
@@ -1040,8 +1043,8 @@ $form.Controls.Add($lblAlt)
 $lblDil = New-Object System.Windows.Forms.Label
 $lblDil.Text = T 'dil-etiket'
 $lblDil.ForeColor = $soluk
-$lblDil.Location = New-Object System.Drawing.Point(252, (841 + $kayma))
-$lblDil.Size = New-Object System.Drawing.Size(64, 20)
+$lblDil.Location = New-Object System.Drawing.Point(238, (841 + $kayma))
+$lblDil.Size = New-Object System.Drawing.Size(78, 20)   # "Language:" 64'e sigmiyordu
 $lblDil.TextAlign = 'MiddleRight'
 $form.Controls.Add($lblDil)
 

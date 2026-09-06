@@ -89,7 +89,12 @@ function T {
     if ($null -eq $m) { $m = $satir['en'] }
     if ($null -eq $m) { return "[$Anahtar]" }
 
-    if ($Arg -and $Arg.Count -gt 0) { return ($m -f $Arg) }
+    # DIKKAT - "$Arg -and" YAZMA:
+    # PowerShell tek elemanli diziyi bool baglaminda ACIYOR, yani @(0) ifadesi
+    # $false oluyor. Boyle yazildiginda port numarasi 0 olan makinede
+    # "port {0}" metni BICIMLENDIRILMEDEN ekrana basiliyordu (gercekten oldu).
+    # Bos olup olmadigina SAYIYLA bakilir, dogruluk degeriyle degil.
+    if ($null -ne $Arg -and @($Arg).Count -gt 0) { return ($m -f $Arg) }
     return $m
 }
 
@@ -126,7 +131,8 @@ $script:Metinler = @{
     'bellek-yetki'      = @{ en = 'memory needs administrator'; tr = 'bellek icin yonetici gerekli' }
 
     # ---- Hiz ----
-    'hiz-not'           = @{ en = 'All fans and the pump move together. The pump never drops below {0}%.'
+    # KISA TUTULDU: uzun hali etikete sigmayip "...below 40" diye kirpiliyordu.
+    'hiz-not'           = @{ en = 'All fans and the pump move together. Pump never below {0}%.'
                              tr = 'Tum fanlar ve pompa birlikte hareket eder. Pompa %{0} altina inmez.' }
     'onayar-sessiz'     = @{ en = 'Quiet';    tr = 'Sessiz' }
     'onayar-dengeli'    = @{ en = 'Balanced'; tr = 'Dengeli' }

@@ -94,6 +94,20 @@ foreach ($m in [regex]::Matches($app, '(?m)(\.Text\s*=\s*|Set-AltBilgi\s+)"([^"]
 if ($supheli.Count -gt 0) { foreach ($s in $supheli) { Basarisiz "duz metin: `"$s`"" } }
 else { Write-Host "   yok" -ForegroundColor Green }
 
+# --- 6) SIFIR argumanla bicimlendirme -------------------------------------
+# GERCEK HATA: T'nin icindeki kontrol "if ($Arg -and ...)" seklindeydi.
+# PowerShell tek elemanli diziyi bool baglaminda ACTIGI icin @(0) ifadesi
+# $false oluyordu; port numarasi 0 olan makinede durum panelinde
+# "port {0}" metni BICIMLENDIRILMEDEN goruntulendi. Bir daha olmasin.
+Write-Host ""
+Write-Host "6) Sifir/bos degerle bicimlendirme"
+$sifirHata = 0
+foreach ($deger in @(0, 0.0, '', $false)) {
+    $c = T 'ram-port' @($deger)
+    if ($c -match '\{\d\}') { Basarisiz ("'$deger' degeriyle yer tutucu doldurulmadi: $c"); $sifirHata++ }
+}
+if ($sifirHata -eq 0) { Write-Host "   0 / 0.0 / bos metin / `$false hepsi dogru bicimlendi" -ForegroundColor Green }
+
 # --- Ornek cikti ----------------------------------------------------------
 # Kullanicinin dil secimi TEST YUZUNDEN DEGISMESIN - once yedeklenir.
 $yedek = $null
