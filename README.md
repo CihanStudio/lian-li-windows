@@ -1,9 +1,13 @@
-# WinTemp — Lian Li fan, AIO and LCD control for Windows, without vendor software
+# Lian Li fan, AIO and LCD control for Windows — without vendor software
 
 One small app that controls your Lian Li fans, AIO pump, RGB lighting and TL LCD
 screens on Windows. No L-Connect. No iCUE. No GIGABYTE Control Center. No
 FanControl. No background services from four different vendors fighting over the
 same hardware.
+
+<img src="assets/screenshot.png" alt="The whole app: one window with speed, colour, fan screens, startup and live sensor readings" width="430">
+
+That is the entire application — everything it does is on that one screen.
 
 **Status:** works, used daily, but built around one specific machine. Read
 [Supported hardware](#supported-hardware) before you try it — this is not a
