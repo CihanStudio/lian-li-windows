@@ -21,9 +21,14 @@
 #   Uygulama acilista BIR KEZ yonetici ister. Sebep: CPU sicakligi ve bellek
 #   RGB'si cekirdek modulu (PawnIO) uzerinden gidiyor. Fanlar ve diger isiklar
 #   yetki istemez; yonetici reddedilirse onlar yine calisir, digerleri kapanir.
-
 [CmdletBinding()]
-param([switch]$NoElevate)
+param(
+    [switch]$NoElevate,
+
+    # Pencereyi acmadan dogrudan bildirim alanina iner. Windows ile birlikte
+    # baslarken kullanilir: acilista ekrana pencere firlatmak rahatsiz edici.
+    [switch]$Minimized
+)
 
 # ---------------------------------------------------------------------------
 # Yonetici yukseltmesi - kendini yeniden baslatir
@@ -38,10 +43,15 @@ $script:Yetkili = Test-Yonetici
 
 if (-not $script:Yetkili -and -not $NoElevate) {
     try {
-        Start-Process powershell -Verb RunAs -ArgumentList @(
+        # -Minimized YENIDEN BASLATMADA DA TASINMALI: yoksa yetki istenen
+        # makinede uygulama acilista pencereyi aciyordu.
+        $argumanlar = @(
             '-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden',
             '-File', "`"$PSCommandPath`""
-        ) -ErrorAction Stop
+        )
+        if ($Minimized) { $argumanlar += '-Minimized' }
+
+        Start-Process powershell -Verb RunAs -ArgumentList $argumanlar -ErrorAction Stop
         exit 0
     }
     catch {
@@ -406,6 +416,20 @@ function Test-BaslangicUygulama {
     return ($LASTEXITCODE -eq 0)
 }
 
+function Test-BaslangicGorevGuncel {
+    <# Gorev, uygulamayi ARTIK -Minimized ile baslatiyor. Bu bayrak eklenmeden
+       once kurulmus gorevler duruyor ve her acilista pencereyi ekrana
+       getiriyor - kutu isaretli oldugu icin kullanici sebebini ayarlarda
+       aramaz, sessiz bir tutarsizlik olurdu. Komut satirina bakip eskiyse
+       gorevi tazeliyoruz.
+
+       Alan adi yerine ciktinin TAMAMINDA aranir: schtasks basliklari Windows
+       diline gore degisiyor, '-Minimized' degismiyor. #>
+    $c = schtasks /Query /TN $script:BaslangicGorevAdi /V /FO LIST 2>&1
+    if ($LASTEXITCODE -ne 0) { return $false }
+    return (($c -join ' ') -match '-Minimized')
+}
+
 function Set-BaslangicUygulama {
     param([bool]$Etkin)
 
@@ -417,9 +441,14 @@ function Set-BaslangicUygulama {
 
     # DIKKAT: /TR icindeki tirnaklar schtasks'a \" olarak GECMELI, yoksa
     # bosluklu yol parcalanir ve gorev calismaz.
+    #
+    # -Minimized: acilista pencere ACILMAZ, uygulama dogrudan bildirim
+    # alanina iner. Her oturum acilisinda ekrana bir pencere firlatmak
+    # kullanicinin ilk isini bolerdi; kutuyu isaretleyen kisi uygulamanin
+    # HAZIR olmasini istiyor, gorunmesini degil.
     $psExe = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
     $tr = '\"' + $psExe + '\" -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"' +
-          (Join-Path $script:AppKlasoru "CoolApp.ps1") + '\"'
+          (Join-Path $script:AppKlasoru "CoolApp.ps1") + '\" -Minimized'
 
     $c = schtasks /Create /F /TN $script:BaslangicGorevAdi /SC ONLOGON /RL HIGHEST /TR $tr 2>&1
     if ($LASTEXITCODE -ne 0) { throw ($c -join ' ') }
@@ -739,13 +768,20 @@ $form.Font = $yaziTipi
 
 # Pencere/gorev cubugu simgesi. Simge YOKSA veya bozuksa uygulama yine de
 # acilmali - Windows varsayilan PowerShell simgesini kullanir.
+# Ikon DEGISKENDE tutuluyor: tepsi simgesi de ayni dosyayi kullaniyor, iki
+# kez diskten okumak yerine bir kez okunup paylasiliyor.
+$script:Ikon = $null
 try {
     $ikonYolu = Join-Path $script:AppKlasoru "assets\app.ico"
     if (Test-Path -LiteralPath $ikonYolu) {
-        $form.Icon = New-Object System.Drawing.Icon($ikonYolu)
+        $script:Ikon = New-Object System.Drawing.Icon($ikonYolu)
+        $form.Icon = $script:Ikon
     }
 }
 catch { }
+# NotifyIcon simgesiz GORUNMEZ - dosya okunamadiysa Windows'un genel
+# uygulama simgesine dusuluyor, yoksa tepsiye kucultmek pencereyi yok ederdi.
+if (-not $script:Ikon) { $script:Ikon = [System.Drawing.SystemIcons]::Application }
 
 function New-Grup {
     param([string]$Baslik, [int]$Y, [int]$Yukseklik)
@@ -1287,6 +1323,11 @@ function Update-Dil {
     $grpDurum.Text = T 'grp-durum'
     $lblDil.Text   = T 'dil-etiket'
 
+    # Tepsi menusu - pencere kapali oldugu icin gozden kacmasi kolay
+    $script:Tepsi.Text       = T 'baslik'
+    $script:TepsiGoster.Text = T 'tepsi-goster'
+    $script:TepsiCikis.Text  = T 'tepsi-cikis'
+
     # Grup basliklari donanim durumuna bagli - onlari o fonksiyon kurar
     $null = Update-DonanimGorunumu
     Update-EkranKutulari
@@ -1526,6 +1567,90 @@ $script:DurumZamanlayici.Interval = 2000
 $script:DurumZamanlayici.Add_Tick({ try { Update-Durum } catch {} })
 
 # ---------------------------------------------------------------------------
+# Bildirim alani (tepsi) simgesi
+#
+# NEDEN: bu bir denetim paneli, saatlerce acik durur. Kucultuldugunde gorev
+# cubugunda yer kaplamasi gereksiz; pencere gizlenir, tepside simge kalir.
+#
+# KAPATMA DUGMESI BILEREK TEPSIYE ATMIYOR. X'e basan kullanici cikmak
+# istiyor - gizlemek, isini bitirdigini sanan kisiye haberi olmadan calisan
+# bir surec birakirdi. Tepsiye inmek icin kucultme dugmesi var.
+# ---------------------------------------------------------------------------
+$script:TepsiBalonGosterildi = $false
+$script:GeriGetiriliyor      = $false
+
+function Show-Pencere {
+    <# Tepsiden geri cagirir.
+
+       BAYRAK NEDEN VAR: Show() pencereyi HALA kucultulmus haliyle gorunur
+       yapiyor ve Resize olayini tetikliyor - bayraksiz haliyle pencere geri
+       geldigi anda kendini yeniden gizliyordu. Once WindowState'i normale
+       cekip sonra Show() demek de ise yaramiyor: Show() isletim sisteminin
+       sakladigi eski (kucultulmus) durumu geri yukluyor.
+
+       Activate() ayri bir cagri cunku Show() pencereyi ONE GETIRMEZ: baska
+       bir uygulamanin arkasinda, odaksiz aciliyor. #>
+    $script:GeriGetiriliyor = $true
+    try {
+        $form.Show()
+        $form.WindowState = [System.Windows.Forms.FormWindowState]::Normal
+        [void]$form.Activate()
+    }
+    finally { $script:GeriGetiriliyor = $false }
+
+    $script:Tepsi.Visible = $false
+
+    # Gizliyken durdurulan yoklama geri baslar; once bir kez okunur ki
+    # pencere iki saniyelik bayat degerlerle acilmasin.
+    try { Update-Durum } catch { }
+    $script:DurumZamanlayici.Start()
+}
+
+$script:TepsiMenu = New-Object System.Windows.Forms.ContextMenuStrip
+
+$script:TepsiGoster = $script:TepsiMenu.Items.Add((T 'tepsi-goster'))
+$script:TepsiGoster.Add_Click({ Show-Pencere })
+
+$script:TepsiCikis = $script:TepsiMenu.Items.Add((T 'tepsi-cikis'))
+$script:TepsiCikis.Add_Click({ $form.Close() })
+
+$script:Tepsi = New-Object System.Windows.Forms.NotifyIcon
+$script:Tepsi.Icon = $script:Ikon
+$script:Tepsi.Text = T 'baslik'
+$script:Tepsi.ContextMenuStrip = $script:TepsiMenu
+$script:Tepsi.Visible = $false
+$script:Tepsi.Add_DoubleClick({ Show-Pencere })
+
+function Hide-Pencere {
+    <# Pencereyi tepsiye indirir. Hem kucultme dugmesi hem de -Minimized ile
+       acilis buradan gecer - iki yolun DAVRANISI ayni olmali. #>
+    $form.Hide()
+    $script:Tepsi.Visible = $true
+
+    # Pencere gorunmuyorken donanimi iki saniyede bir yoklamanin karsiligi
+    # yok - okunan degerleri kimse gormuyor. USB/SMBus trafigi bosuna.
+    $script:DurumZamanlayici.Stop()
+
+    # Balon SADECE ILK KEZ: pencerenin nereye gittigini bilmeyen kullanici
+    # icin gerekli, her kucultmede cikmasi rahatsiz edici olurdu. Windows
+    # ile acilista da bir kez cikar - uygulamanin basladigini o gosterir.
+    if (-not $script:TepsiBalonGosterildi) {
+        $script:TepsiBalonGosterildi = $true
+        $script:Tepsi.BalloonTipTitle = T 'baslik'
+        $script:Tepsi.BalloonTipText  = T 'tepsi-bilgi'
+        $script:Tepsi.ShowBalloonTip(4000)
+    }
+}
+
+$form.Add_Resize({
+    # Geri getirme sirasinda gelen olay YOK SAYILIR - bkz. Show-Pencere.
+    if ($script:GeriGetiriliyor) { return }
+    if ($form.WindowState -ne [System.Windows.Forms.FormWindowState]::Minimized) { return }
+
+    Hide-Pencere
+})
+
+# ---------------------------------------------------------------------------
 # Baslat
 # ---------------------------------------------------------------------------
 $form.Add_Shown({
@@ -1541,6 +1666,15 @@ $form.Add_Shown({
     try {
         $chkBasEkran.Checked = Test-BaslangicEkran
         $chkBasApp.Checked   = Test-BaslangicUygulama
+
+        # Eski surumun kurdugu gorev -Minimized bilmiyor ve her acilista
+        # pencereyi ekrana getiriyor. Kullaniciya sormadan tazeleniyor:
+        # kutu zaten isaretli, istedigi sey degismedi, sadece dogru
+        # calismaya basliyor. Yetki yoksa dokunmuyoruz - schtasks reddeder.
+        if ($chkBasApp.Checked -and $script:Yetkili -and
+            -not (Test-BaslangicGorevGuncel)) {
+            Set-BaslangicUygulama -Etkin $true
+        }
     }
     catch { }
     $script:BaslangicYukleniyor = $false
@@ -1567,17 +1701,46 @@ $form.Add_Shown({
 
     Update-Durum
     $script:DurumZamanlayici.Start()
+
+    # -Minimized ile acildiysa pencere GORUNMEDEN tepsiye iner. Gizleme
+    # burada, Shown olayinda yapiliyor: daha erken denenirse pencerenin
+    # tutamaci henuz yok ve Hide() etkisiz kaliyor.
+    if ($Minimized) {
+        Hide-Pencere
+        # Acilis icin kapatilan iki ayar geri aliniyor - pencere GIZLENDIKTEN
+        # sonra, boylece kullanici geri cagirdiginda gorev cubugunda dogru
+        # sekilde beliren, saydam olmayan bir pencere buluyor.
+        $form.ShowInTaskbar = $true
+        $form.Opacity = 1
+    }
 })
 
 $form.Add_FormClosing({
     $script:DurumZamanlayici.Stop()
     $script:HizZamanlayici.Stop()
+    # Tepsi simgesi ONCE gizlenir: sadece Dispose etmek Windows'ta bazen
+    # bildirim alaninda fare degene kadar silinmeyen olu bir simge birakiyor.
+    $script:Tepsi.Visible = $false
+    $script:Tepsi.Dispose()
     # LCD daemon BILEREK durdurulmuyor: kullanici uygulama kapandiktan sonra
     # da ekranlarin donmesini istiyor. Durdurmak icin "Ekranlari durdur".
     Close-Devices
 })
 
-[void]$form.ShowDialog()
+# -Minimized acilisinda pencere HIC gorunmemeli. Shown olayindaki Hide()
+# tek basina yetmiyor: o olay pencere ekrana ciktiktan SONRA gelir, yani
+# acilista bir kare boyunca pencere parliyordu. Kucultulmus ve saydam
+# baslatmak o parlamayi tamamen kaldiriyor; Opacity Shown icinde geri aciliyor.
+if ($Minimized) {
+    $form.WindowState = [System.Windows.Forms.FormWindowState]::Minimized
+    $form.ShowInTaskbar = $false
+    $form.Opacity = 0
+}
+
+# ShowDialog DEGIL: kipli pencere gizlendigi anda ShowDialog geri doner ve
+# uygulama kapanirdi - tepsiye kucultmek imkansiz olurdu. Application.Run
+# ise dongusunu pencere KAPANANA kadar surduruyor.
+[System.Windows.Forms.Application]::Run($form)
 
 
 

@@ -172,6 +172,12 @@ $script:Metinler = @{
     'kisayol-aciklama'  = @{ en = 'Background process feeding the fan LCD screens'
                              tr = 'Fan LCD ekranlarini besleyen arka surec' }
 
+    # ---- Tepsi (bildirim alani) ----
+    'tepsi-goster'      = @{ en = 'Show window'; tr = 'Pencereyi goster' }
+    'tepsi-cikis'       = @{ en = 'Exit';        tr = 'Cikis' }
+    'tepsi-bilgi'       = @{ en = 'Still running here. Double-click to bring the window back.'
+                             tr = 'Buradan calismaya devam ediyor. Pencereyi geri getirmek icin cift tikla.' }
+
     # ---- Dil secici ----
     'dil-etiket'        = @{ en = 'Language:'; tr = 'Dil:' }
 
@@ -239,7 +245,8 @@ $script:Metinler = @{
     'bas-ekran-kapali'  = @{ en = 'Screens will no longer start automatically.'; tr = 'Ekranlarin otomatik baslamasi kapatildi.' }
     'bas-hata'          = @{ en = 'Could not change the startup setting: {0}'; tr = 'Baslangic ayarlanamadi: {0}' }
     'bas-app-yetki'     = @{ en = 'For this, open the app as administrator.'; tr = 'Bunun icin uygulamayi yonetici olarak acmalisin.' }
-    'bas-app-acik'      = @{ en = 'The app will start with Windows (no UAC prompt).'; tr = 'Uygulama Windows ile birlikte acilacak (UAC sormayacak).' }
+    'bas-app-acik'      = @{ en = 'The app will start with Windows, minimised to the notification area (no UAC prompt).'
+                             tr = 'Uygulama Windows ile birlikte bildirim alaninda acilacak (UAC sormayacak).' }
     'bas-app-kapali'    = @{ en = 'The app will no longer start automatically.'; tr = 'Uygulamanin otomatik baslamasi kapatildi.' }
     'gorev-hata'        = @{ en = 'Could not create the scheduled task: {0}'; tr = 'Gorev olusturulamadi: {0}' }
 

@@ -173,6 +173,13 @@ Everything is in one window:
 - **Fan screens** — assign an image or GIF per fan, set brightness, press *Apply
   to screens*.
 - **Start with Windows** — two independent checkboxes, both off by default.
+  With *This app* ticked, the app starts straight into the notification area
+  at logon; no window opens over whatever you were about to do.
+- **Minimise to the notification area** — minimising the window hides it and
+  leaves an icon next to the clock. Double-click that icon, or pick *Show
+  window* from its right-click menu, to bring the window back. Closing the
+  window still quits the app. Sensor polling pauses while the window is
+  hidden, so nothing is read from the devices for a window nobody is looking at.
 - **Language** — English and Turkish, bottom right. The default follows your
   Windows display language; change it and the window switches immediately,
   without restarting or losing your settings. The choice is remembered in

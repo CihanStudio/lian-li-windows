@@ -7,7 +7,7 @@
 # kayboluyordu ve hicbir hata verilmiyordu. Sessiz kirpilma en kotu tur:
 # program calisiyor gorunuyor ama yanlis sey yaziyor.
 #
-# NASIL CALISIR: CoolApp.ps1 okunur, sondaki ShowDialog cagrisi denetim
+# NASIL CALISIR: CoolApp.ps1 okunur, sondaki Application.Run cagrisi denetim
 # dolasan bir blokla DEGISTIRILIR ve gecici bir kopya calistirilir. Boylece
 # arayuz kodu ikiye bolunmeden, uretimdeki haliyle sinaniyor.
 #
@@ -19,8 +19,8 @@ $ErrorActionPreference = 'Stop'
 $kok = Split-Path $PSScriptRoot -Parent
 $src = Get-Content -LiteralPath (Join-Path $kok "CoolApp.ps1") -Raw
 
-if ($src -notmatch '\[void\]\$form\.ShowDialog\(\)') {
-    throw "CoolApp.ps1 icinde ShowDialog satiri bulunamadi - test uyarlanmali."
+if ($src -notmatch '\[System\.Windows\.Forms\.Application\]::Run\(\$form\)') {
+    throw "CoolApp.ps1 icinde Application.Run satiri bulunamadi - test uyarlanmali."
 }
 
 $olcumBlogu = @'
@@ -96,7 +96,7 @@ $form.Dispose()
 # Gecici kopya UYGULAMA KLASORUNDE olmali: lib\ ve json yollari
 # $PSScriptRoot'a gore cozuluyor.
 $gecici = Join-Path $kok "CoolApp-testArayuz.ps1"
-Set-Content -LiteralPath $gecici -Value ($src.Replace('[void]$form.ShowDialog()', $olcumBlogu)) -Encoding UTF8
+Set-Content -LiteralPath $gecici -Value ($src.Replace('[System.Windows.Forms.Application]::Run($form)', $olcumBlogu)) -Encoding UTF8
 
 # Kullanicinin dil secimi test yuzunden degismesin
 $dilDosyasi = Join-Path $kok "dil.txt"
