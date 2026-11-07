@@ -410,6 +410,69 @@ function Set-BaslangicEkran {
     $lnk.Save()
 }
 
+function Get-GuvensizYazicilar {
+    <#
+      Yonetici OLMAYAN ve yonetici olarak calisacak betikleri degistirebilen
+      hesaplari dondurur. Bos liste = gorev guvenle kurulabilir.
+
+      NEDEN: gorev /RL HIGHEST ile UAC sormadan calisiyor. Klasor kullanicinin
+      yazabildigi bir yerdeyse (Masaustu, Belgeler...), yetkisiz calisan
+      herhangi bir program CoolApp.ps1'e bir satir ekler ve bir sonraki oturum
+      acilisinda yonetici olur - UAC atlatmasi. Imza dogrulamasi reddedildi:
+      proje imzasiz kaynak olarak dagitiliyor (bkz. README).
+
+      Klasorun ICI icin yazma/silme, UST klasorler icin silme bakilir: ust
+      klasorde silme yetkisi olan, bu klasoru yeniden adlandirip yerine
+      kendi kopyasini koyabilir. Sahiplik de sayilir - sahip, DACL'i her
+      zaman kendine yazma verecek sekilde degistirebilir.
+    #>
+    $guvenilir = @(
+        'S-1-5-18',        # SYSTEM
+        'S-1-5-32-544',    # Administrators
+        'S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464'   # TrustedInstaller
+    )
+    # WriteData|AppendData|DeleteChild|Delete|WriteDac|WriteOwner|GenericAll|GenericWrite
+    $icMaske  = 0x2 -bor 0x4 -bor 0x40 -bor 0x10000 -bor 0x40000 -bor 0x80000 -bor 0x10000000 -bor 0x40000000
+    # DeleteChild|Delete|WriteDac|WriteOwner|GenericAll
+    $ustMaske = 0x40 -bor 0x10000 -bor 0x40000 -bor 0x80000 -bor 0x10000000
+
+    $kok = $script:AppKlasoru
+    $lib = Join-Path $kok 'lib'
+    $icYollar = @($kok, $lib) +
+        @(Get-ChildItem -LiteralPath $kok -Filter *.ps1 -File | ForEach-Object FullName) +
+        @(Get-ChildItem -LiteralPath $lib -Filter *.ps1 -File | ForEach-Object FullName)
+    $hedefler = @($icYollar | ForEach-Object { [PSCustomObject]@{ Yol = $_; Maske = $icMaske } })
+    $ust = ([System.IO.DirectoryInfo]$kok).Parent
+    while ($ust) {
+        $hedefler += [PSCustomObject]@{ Yol = $ust.FullName; Maske = $ustMaske }
+        $ust = $ust.Parent
+    }
+
+    $ad = {
+        param($sid)
+        try { $sid.Translate([System.Security.Principal.NTAccount]).Value } catch { $sid.Value }
+    }
+
+    $bulunan = [System.Collections.Generic.List[string]]::new()
+    foreach ($h in $hedefler) {
+        # ACL okunamiyorsa (FAT32 bellek, ag surucusu) guvenli SAYILMAZ
+        try { $acl = Get-Acl -LiteralPath $h.Yol }
+        catch { throw (T 'acl-okunamadi' @($h.Yol)) }
+
+        $sahip = $acl.GetOwner([System.Security.Principal.SecurityIdentifier])
+        if ($guvenilir -notcontains $sahip.Value) { $bulunan.Add((& $ad $sahip)) }
+
+        foreach ($k in $acl.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier])) {
+            if ($k.AccessControlType -ne 'Allow') { continue }
+            # Yalnizca alt nesnelere miras kalan kural bu nesneye uygulanmaz
+            if ($k.PropagationFlags -band [System.Security.AccessControl.PropagationFlags]::InheritOnly) { continue }
+            if ($guvenilir -contains $k.IdentityReference.Value) { continue }
+            if (([int64]$k.FileSystemRights -band $h.Maske) -ne 0) { $bulunan.Add((& $ad $k.IdentityReference)) }
+        }
+    }
+    return @($bulunan | Sort-Object -Unique)
+}
+
 function Test-BaslangicUygulama {
     # schtasks bulamazsa hata metni yazar ve cikis kodu 1 olur
     $null = schtasks /Query /TN $script:BaslangicGorevAdi 2>&1
@@ -446,6 +509,9 @@ function Set-BaslangicUygulama {
     # alanina iner. Her oturum acilisinda ekrana bir pencere firlatmak
     # kullanicinin ilk isini bolerdi; kutuyu isaretleyen kisi uygulamanin
     # HAZIR olmasini istiyor, gorunmesini degil.
+    $yazicilar = @(Get-GuvensizYazicilar)
+    if ($yazicilar.Count -gt 0) { throw (T 'bas-app-guvensiz' @(($yazicilar -join ', '))) }
+
     $psExe = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
     $tr = '\"' + $psExe + '\" -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"' +
           (Join-Path $script:AppKlasoru "CoolApp.ps1") + '\" -Minimized'
@@ -1666,6 +1732,29 @@ $form.Add_Shown({
     try {
         $chkBasEkran.Checked = Test-BaslangicEkran
         $chkBasApp.Checked   = Test-BaslangicUygulama
+
+        # Bu kontrolden ONCE kurulmus bir gorev, yazilabilir bir klasoru
+        # yonetici olarak calistiriyor olabilir. Sormadan kaldiriliyor: kutuyu
+        # isaretleyen kisi "hazir olsun" istedi, "baskasi yonetici olsun"
+        # degil. Pencere ile bildiriliyor cunku kullanicinin klasoru tasimasi
+        # gerekiyor - alt bilgi satiri hemen asagida cihaz durumuyla ezilir.
+        if ($chkBasApp.Checked -and $script:Yetkili) {
+            $neden = $null
+            try {
+                $yazicilar = @(Get-GuvensizYazicilar)
+                if ($yazicilar.Count -gt 0) { $neden = T 'bas-app-guvensiz' @(($yazicilar -join ', ')) }
+            }
+            catch { $neden = $_.Exception.Message }
+            if ($neden) {
+                Set-BaslangicUygulama -Etkin $false
+                $chkBasApp.Checked = $false
+                [System.Windows.Forms.MessageBox]::Show(
+                    (T 'bas-app-kaldirildi' @($neden)),
+                    (T 'baslik'),
+                    [System.Windows.Forms.MessageBoxButtons]::OK,
+                    [System.Windows.Forms.MessageBoxIcon]::Warning) | Out-Null
+            }
+        }
 
         # Eski surumun kurdugu gorev -Minimized bilmiyor ve her acilista
         # pencereyi ekrana getiriyor. Kullaniciya sormadan tazeleniyor:

@@ -132,6 +132,14 @@ Everything below is verified working on the development machine:
 1. Download the [latest release](https://github.com/CihanStudio/lian-li-windows/releases/latest)
    and extract it somewhere permanent — **not** your Downloads folder, because
    the "start with Windows" option stores this path. (`git clone` works too.)
+
+   If you want the app itself to start with Windows, put it somewhere only
+   administrators can change, such as `C:\Program Files\lian-li-windows`.
+   That option runs the app as administrator without a UAC prompt, so from a
+   folder you can write to (Desktop, Documents) any program running as you
+   could edit the scripts and get administrator rights at your next sign-in.
+   The app checks this and refuses to create the task from such a folder.
+   Screens-only startup has no such requirement.
 2. Unblock the extracted files. Windows marks everything that came out of a
    downloaded zip, and clicking through forty files one at a time is not
    reasonable. Open PowerShell in the folder you extracted to and run:

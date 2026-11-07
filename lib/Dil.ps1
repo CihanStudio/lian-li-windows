@@ -249,6 +249,11 @@ $script:Metinler = @{
                              tr = 'Uygulama Windows ile birlikte bildirim alaninda acilacak (UAC sormayacak).' }
     'bas-app-kapali'    = @{ en = 'The app will no longer start automatically.'; tr = 'Uygulamanin otomatik baslamasi kapatildi.' }
     'gorev-hata'        = @{ en = 'Could not create the scheduled task: {0}'; tr = 'Gorev olusturulamadi: {0}' }
+    'bas-app-guvensiz'  = @{ en = '{0} can change the app files without administrator rights, and the task would run them as administrator. Move the app folder somewhere only administrators can change, such as C:\Program Files.'
+                             tr = '{0} uygulama dosyalarini yonetici olmadan degistirebilir, gorev ise onlari yonetici olarak calistirir. Uygulama klasorunu yalnizca yoneticinin degistirebildigi bir yere, ornegin C:\Program Files altina tasi.' }
+    'bas-app-kaldirildi' = @{ en = "Start with Windows has been turned off for this app.`r`n`r`n{0}"
+                             tr = "Bu uygulamanin Windows ile baslamasi kapatildi.`r`n`r`n{0}" }
+    'acl-okunamadi'     = @{ en = 'the permissions of {0} cannot be read'; tr = '{0} izinleri okunamiyor' }
 
     # ---- Acilis ----
     'hazir'             = @{ en = 'Ready.'; tr = 'Hazir.' }
